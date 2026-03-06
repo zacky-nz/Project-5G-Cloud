@@ -1,0 +1,34 @@
+# --- KONFIGURASI REDIS (DATABASE) ---
+# Kita pakai Redis Standar (Single Pod) karena node cuma 1.
+# Ini jauh lebih stabil daripada memaksakan HA di 1 node.
+
+redis-ha:
+  enabled: false # MATIKAN INI
+
+redis:
+  enabled: true  # AKTIFKAN INI
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      storageClass: "longhorn"
+      size: 8Gi
+
+# --- KONFIGURASI ARGO CD ---
+# Pastikan server menyimpan data di Longhorn juga
+
+server:
+  statefulSet:
+    enabled: true
+    persistence:
+      enabled: true
+      storageClass: "longhorn"
+      size: 10Gi
+
+repoServer:
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    size: 10Gi

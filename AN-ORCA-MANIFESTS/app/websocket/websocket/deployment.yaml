@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket
+  namespace: staging
+  labels:
+    app: websocket
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: websocket
+  template:
+    metadata:
+      labels:
+        app: websocket
+    spec:
+      containers:
+      - name: websocket
+        image: quay.tiplab.local/orca/ws:3451a79
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+        command: ["/bin/bash", "-c"]
+        args:
+        - daphne -b 0.0.0.0 -p 8002 orca_backend_ws.asgi:application
+        securityContext:
+          capabilities:
+            add: ["NET_RAW", "NET_ADMIN"]
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "2000m"
+          requests:
+            memory: "200Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: "/"
+            port: 8002
+          initialDelaySeconds: 1
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: "/"
+            port: 8002
+          initialDelaySeconds: 1
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: quay-registry-secret
+      nodeName: node2

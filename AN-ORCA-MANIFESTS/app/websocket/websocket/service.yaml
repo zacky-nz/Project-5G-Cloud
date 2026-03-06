@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket
+  namespace: staging
+  labels:
+    app: websocket
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8002
+  selector:
+    app: websocket

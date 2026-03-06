@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+  namespace: postgresql
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: backend-db
+  template:
+    metadata:
+      labels:
+        app: backend-db
+    spec:
+      imagePullSecrets:
+      - name: quay-registry-secret
+      containers:
+        - name: postgresql
+          image: 'quay.tiplab.local/orca/postgres:14-alpine'
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          env:
+          - name: POSTGRES_DB
+            value: "orcadb"
+          - name: POSTGRES_USER
+            value: "postgres"
+          - name: POSTGRES_PASSWORD
+            value: "orca"
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+              name: postgresdata
+      nodeName: node2
+      volumes:
+        - name: postgresdata
+          persistentVolumeClaim:
+            claimName: postgresql-pvc

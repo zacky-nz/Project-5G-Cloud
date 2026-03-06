@@ -1,0 +1,8 @@
+resources:
+- namespace.yaml
+- serviceAccount.yaml
+- pvc.yaml
+- secret.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml

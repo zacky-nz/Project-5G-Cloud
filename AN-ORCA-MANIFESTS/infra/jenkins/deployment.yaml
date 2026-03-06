@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: jenkins
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: jenkins-server
+  template:
+    metadata:
+      labels:
+        app: jenkins-server
+    spec:
+      securityContext:
+            runAsUser: 0
+            fsGroup: 1000
+      serviceAccountName: jenkins-admin
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:lts
+          resources:
+            limits:
+              memory: "2Gi"
+              cpu: "4000m"
+            requests:
+              memory: "1000Mi"
+              cpu: "2000m"
+          ports:
+            - name: httpport
+              containerPort: 8080
+            - name: jnlpport
+              containerPort: 50000
+          livenessProbe:
+            httpGet:
+              path: "/login"
+              port: 8080
+            initialDelaySeconds: 150
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: "/login"
+              port: 8080
+            initialDelaySeconds: 150
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          env:
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_home/casc.yaml
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false -Duser.timezone=Asia/Jakarta
+          volumeMounts:
+            - name: jenkins-data
+              mountPath: /var/jenkins_home
+      volumes:
+        - name: jenkins-data
+          persistentVolumeClaim:
+              claimName: jenkins-pvc
+      initContainers:
+        - name: git-clone
+          image: alpine/git
+          command:
+            - sh
+            - -c
+            - |
+              git clone https://github.com/adaptivenetworklab/AN-OPEN-NETRA-INFRA.git /tmp/repo
+              cp /tmp/repo/jcasc/plugins.txt /var/jenkins_home/
+              cp /tmp/repo/jcasc/casc.yaml /var/jenkins_home/
+          volumeMounts:
+            - name: jenkins-data
+              mountPath: /var/jenkins_home

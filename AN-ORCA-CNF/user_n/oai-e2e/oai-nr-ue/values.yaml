@@ -1,0 +1,81 @@
+kubernetesType: Vanilla
+
+nfimage:
+  repository: docker.io/oaisoftwarealliance/oai-nr-ue
+  version: 2023.w49
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+imagePullSecrets:
+  name: "regcred"
+  dockerconfigjson: "eyJhdXRocyI6e319"
+
+multus:
+  create: true
+  ipadd: "172.20.1.214"
+  netmask: "24"
+  defaultGateway: ""
+  hostInterface: "eth0"
+
+config:
+  timeZone: "UTC"
+  rfSimServer: "172.20.1.213"
+  fullImsi: "208990100001101"
+  fullKey: "a92d71ed92f43ebae1720f34fd2e6966"
+  opc: "C42449363BBAD02B66D16BC975D77CC1"
+  
+  dnn: "oai"
+  sst: "1"
+  sd: "FFFFFF"
+  usrp: "rfsim"
+  useAdditionalOptions: "--sa --rfsim -r 106 --numerology 1 -C 3619200000 --nokrnmod --log_config.global_log_options level,nocolor,time"
+
+  ueTunnel:
+    enable: true
+    name: oaitun_ue1
+    setDefaultRoute: true
+
+    dns:
+    - 8.8.8.8
+
+podSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+
+start:
+  nrue: true
+  tcpdump: false
+
+includeTcpDumpContainer: false
+
+tcpdumpimage:
+   repository: docker.io/corfr/tcpdump
+   version: latest
+   pullPolicy: IfNotPresent
+
+resources:
+  define: false
+  limits:
+    nf:
+      cpu: 1500m
+      memory: 1Gi
+    tcpdump:
+      cpu: 200m
+      memory: 128Mi
+  requests:
+    nf:
+      cpu: 1500m
+      memory: 1Gi
+    tcpdump:
+      cpu: 100m
+      memory: 128Mi
+
+terminationGracePeriodSeconds: 0
+
+nodeSelector: {}
+
+nodeName: awanbaru

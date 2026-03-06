@@ -1,0 +1,127 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: staging
+  labels:
+    app: frontend
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: stg.orca.edu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend
+  namespace: staging
+  labels:
+    app: frontend
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.orca.edu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: websocket
+  namespace: staging
+  labels:
+    app: websocket
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 600m
+    nginx.org/client-max-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/secure-backends: "true"
+    #nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: "websocket"
+    nginx.org/websocket-services: "websocket"
+    nginx.ingress.kubernetes.io/server-snippets: |
+      location / {
+        proxysetheader Upgrade $httpupgrade;
+        proxyhttpversion 1.1;
+        proxysetheader X-Forwarded-Host $httphost;
+        proxysetheader X-Forwarded-Proto $scheme;
+        proxysetheader X-Forwarded-For $remoteaddr;
+        proxysetheader Host $host;
+        proxysetheader Connection "upgrade";
+        proxycachebypass $httpupgrade;
+        }
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: ws.orca.edu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: websocket
+            port:
+              number: 8002
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: redis
+  namespace: redis
+  labels:
+    app: redis
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: redis.orca.edu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: redis
+            port:
+              number: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: postgresql
+  namespace: postgresql
+  labels:
+    app: backend-db
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: db.orca.edu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: postgresql
+            port:
+              number: 5432

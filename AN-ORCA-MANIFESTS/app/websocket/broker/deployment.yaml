@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: redis
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:alpine
+          env:
+          - name: REDIS_PORT
+            value: "6379"
+          - name: REDIS_PASSWORD
+            value: "orca"
+          args: ['/usr/local/etc/redis/redis.conf']
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/redis/redis.conf
+              readOnly: true
+              subPath: redis.conf
+            - name: redis-persistent-storage
+              mountPath: /data/redis
+          ports:
+            - containerPort: 6379
+      volumes:
+        - name: config
+          configMap:
+            defaultMode: 0666
+            name: redis
+        - name: redis-persistent-storage
+          persistentVolumeClaim:
+            claimName: redis-pvc
