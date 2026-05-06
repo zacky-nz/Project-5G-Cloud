@@ -40,8 +40,8 @@ multus:
   n3Interface:
     #create: false
     create: true
-    Ipadd: "172.20.8.201"
-    Netmask: "24"
+    Ipadd: "172.20.0.201"
+    Netmask: "16"
     # #name inside the pod is hardcoded right now
     # name: "n3"
     ## If you do not have a gateway leave the field empty
@@ -51,19 +51,19 @@ multus:
     routes: ""
     hostInterface: "eth0"
   n4Interface:
-    create: false
-    #create: true
-    #Ipadd: "192.168.24.2"
-    #Netmask: "27"
+    #create: false
+    create: true
+    Ipadd: "172.20.0.202"
+    Netmask: "16"
     # #name inside the pod is hardcoded right now
     # name: "n4"
     ## If you do not have a gateway leave the field empty
-    #Gateway: ""
+    Gateway: ""
     ## If you do not want to add any routes in your pod then leave this field empty
-    #routes: ""
-    #hostInterface: "bond0"
-  n6Interface:
-    create: false
+    routes: ""
+    hostInterface: "eth0"
+  #n6Interface:
+   # create: false
     #create: true
     #Ipadd: "192.168.22.2"
     # #name inside the pod is hardcoded right now
@@ -73,7 +73,7 @@ multus:
     #Gateway: ""
     ## If you do not want to add any routes in your pod then leave this field empty
     #routes: ""
-    hostInterface: "eth0"
+    #hostInterface: "eth0"
 
 ## Debugging section
 start:

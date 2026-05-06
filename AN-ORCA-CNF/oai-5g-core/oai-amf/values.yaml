@@ -42,8 +42,8 @@ multus:
   defaultGateway: ""
   n2Interface:
     create: true
-    Ipadd: "172.21.16.94"
-    Netmask: "24"
+    Ipadd: "172.20.0.200"
+    Netmask: "16"
     ## If you do not have a gateway leave the field empty
     Gateway:
     ## If you do not want to add any routes in your pod then leave this field empty

@@ -17,8 +17,8 @@ multus:
   defaultGateway: ""
   f1Interface:
     create: true 
-    IPadd: "172.20.1.213"
-    Netmask: "24"
+    IPadd: "172.20.0.213"
+    Netmask: "16"
     hostInterface: "eth0"
   ruInterface:
     create: false

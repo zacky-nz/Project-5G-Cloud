@@ -1,0 +1,311 @@
+---
+# Source: oai-cu-level1/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oai-cu-level1-sa
+---
+# Source: oai-cu-level1/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oai-cu-level1-configmap
+data:
+  #Taken from --> https://gitlab.eurecom.fr/oai/openairinterface5g/-/blob/develop/ci-scripts/conf_files/gnb-cu.sa.band78.106prb.conf
+  cu.conf: |
+      Active_gNBs = ( "oai-cu");
+      # Asn1_verbosity, choice in: none, info, annoying
+      Asn1_verbosity = "none";
+      Num_Threads_PUSCH = 8;
+
+      gNBs =
+      (
+       {
+          ////////// Identification parameters:
+          gNB_ID = 0xe10; 
+
+      #     cell_type =  "CELL_MACRO_GNB";
+
+          gNB_name  =  "oai-cu";
+
+          // Tracking area code, 0x0000 and 0xfffe are reserved values
+          tracking_area_code  = 40961;
+          plmn_list = ({ mcc = 208; mnc = 99; mnc_length = 2; snssaiList = ({ sst = 1; }) });
+
+          nr_cellid = 12345678L;
+
+          tr_s_preference = "f1";
+
+          local_s_if_name = "f1";
+          local_s_address = "@F1_IP_ADDRESS@";
+          remote_s_address = "172.20.1.213"; 
+          local_s_portc   = 501;
+          local_s_portd   = 2152;
+          remote_s_portc  = 500;
+          remote_s_portd  = 2152;
+
+          # ------- SCTP definitions
+          SCTP :
+          {
+              # Number of streams to use in input/output
+              SCTP_INSTREAMS  = 2;
+              SCTP_OUTSTREAMS = 2;
+          };
+
+
+          ////////// AMF parameters:
+          amf_ip_address      = ( { ipv4       = "172.20.0.200";
+                                    ipv6       = "192:168:30::17";
+                                    active     = "yes";
+                                    preference = "ipv4";
+                                  }
+                                );
+
+
+          NETWORK_INTERFACES :
+          {
+            GNB_INTERFACE_NAME_FOR_NG_AMF            = "n2";
+            GNB_IPV4_ADDRESS_FOR_NG_AMF              = "@N2_IP_ADDRESS@";
+            GNB_INTERFACE_NAME_FOR_NGU               = "n3";
+            GNB_IPV4_ADDRESS_FOR_NGU                 = "@N3_IP_ADDRESS@";
+            GNB_PORT_FOR_S1U                         = 2152;
+          };
+        }
+      );
+
+      security = {
+        # preferred ciphering algorithms
+        # the first one of the list that an UE supports in chosen
+        # valid values: nea0, nea1, nea2, nea3
+        ciphering_algorithms = ( "nea0" );
+
+        # preferred integrity algorithms
+        # the first one of the list that an UE supports in chosen
+        # valid values: nia0, nia1, nia2, nia3
+        integrity_algorithms = ( "nia2", "nia0" );
+
+        # setting 'drb_ciphering' to "no" disables ciphering for DRBs, no matter
+        # what 'ciphering_algorithms' configures; same thing for 'drb_integrity'
+        drb_ciphering = "yes";
+        drb_integrity = "no";
+      };
+
+      log_config : {
+        global_log_level                      ="debug";
+        hw_log_level                          ="debug";
+        phy_log_level                         ="debug";
+        mac_log_level                         ="debug";
+        rlc_log_level                         ="debug";
+        pdcp_log_level                        ="debug";
+        rrc_log_level                         ="debug";
+        f1ap_log_level                        ="debug";
+        ngap_log_level                        ="debug";
+      };
+---
+# Source: oai-cu-level1/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oai-cu-level1
+  labels:
+    helm.sh/chart: oai-cu-level1-2.0.0
+    app.kubernetes.io/name: oai-cu-level1
+    app.kubernetes.io/instance: oai-cu-level1
+    app.kubernetes.io/version: "develop"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: n2
+      port: 36412
+      targetPort: 36412
+      protocol: SCTP
+    - name: n3
+      port: 2152
+      targetPort: 2152
+      protocol: UDP
+    - name: f1u
+      port: 2153
+      targetPort: 2153
+      protocol: UDP
+    - name: f1c
+      port: 501
+      targetPort: 501
+      protocol: SCTP
+  selector:
+    app.kubernetes.io/name: oai-cu-level1
+    app.kubernetes.io/instance: oai-cu-level1
+---
+# Source: oai-cu-level1/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oai-cu-level1
+  labels:
+    helm.sh/chart: oai-cu-level1-2.0.0
+    app.kubernetes.io/name: oai-cu-level1
+    app.kubernetes.io/instance: oai-cu-level1
+    app.kubernetes.io/version: "develop"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oai-cu-level1
+      app.kubernetes.io/instance: oai-cu-level1
+
+  strategy:
+    type: Recreate
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oai-cu-level1
+        app.kubernetes.io/instance: oai-cu-level1
+        app: oai-cu
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |
+          [
+            { "name": "oai-cu-level1-f1", "interface": "f1" },
+            { "name": "oai-cu-level1-n3", "interface": "n3" },
+            { "name": "oai-cu-level1-n2", "interface": "n2" }
+          ]
+
+    spec:
+      securityContext:
+        runAsGroup: 0
+        runAsUser: 0
+      imagePullSecrets:
+        - name: regcred
+
+      containers:
+        - name: gnbcu
+          image: "docker.io/oaisoftwarealliance/oai-gnb:2023.w49"
+          securityContext:
+            privileged: true
+
+          volumeMounts:
+            - mountPath: /opt/oai-gnb/etc
+              name: configuration
+
+          ports:
+            - name: n3
+              containerPort: 2152
+              protocol: UDP
+            - name: n2
+              containerPort: 36412
+              protocol: SCTP
+            - name: f1c
+              containerPort: 501
+              protocol: SCTP
+            - name: f1u
+              containerPort: 2152
+              protocol: UDP
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              AMF_IP_ADDRESS=$(getent hosts $AMF_HOST | awk '{print $1}');
+              AMF_IP_ADDRESS=$(if [[ $AMF_IP_ADDRESS ]]; then echo $AMF_IP_ADDRESS; else echo $AMF_HOST; fi);
+              N2_IP_ADDRESS=$(ip -f inet addr show $N2_IF_NAME | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | awk '{print $2}' | cut -d/ -f1);
+              N3_IP_ADDRESS=$(ip -f inet addr show $N3_IF_NAME | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | awk '{print $2}' | cut -d/ -f1);
+              F1_IP_ADDRESS=$(ip -f inet addr show $F1_IF_NAME | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | awk '{print $2}' | cut -d/ -f1);
+              sed -e s/@N2_IP_ADDRESS@/$N2_IP_ADDRESS/g \
+                  -e s/@N3_IP_ADDRESS@/$N3_IP_ADDRESS/g \
+                  -e s/@F1_IP_ADDRESS@/$F1_IP_ADDRESS/g \
+                  -e s/@AMF_IP_ADDRESS@/$AMF_IP_ADDRESS/g \
+                  /opt/oai-gnb/etc/cu.conf | tee /tmp/cu.conf;
+              exec /opt/oai-gnb/bin/nr-softmodem -O /tmp/cu.conf $USE_ADDITIONAL_OPTIONS;
+
+          env:
+            - name: DU_HOST
+              value: "172.20.1.213"
+            - name: TZ
+              value: "UTC"
+            - name: USE_ADDITIONAL_OPTIONS
+              value: "--sa --log_config.global_log_options level,nocolor,time"
+            - name: OAI_GDBSTACKS
+              value: "1"
+            - name: AMF_HOST
+              value: "172.20.0.200"
+            - name: N2_IF_NAME
+              value: "n2"
+            - name: N3_IF_NAME
+              value: "n3"
+            - name: F1_IF_NAME
+              value: "f1"
+
+      volumes:
+        - name: configuration
+          configMap:
+            name: oai-cu-level1-configmap
+
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      serviceAccountName: 
+      terminationGracePeriodSeconds: 5
+      nodeName: awanbaru
+---
+# Source: oai-cu-level1/templates/multus.yaml
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition 
+metadata:
+  name: oai-cu-level1-n2
+spec:
+  config: '{ 
+      "cniVersion": "0.3.1",
+      "type": "ipvlan",
+      "master":"eth0",
+      "mode": "l2",
+      "ipam": {
+        "type": "static",
+        "addresses": [
+                {
+                        "address":"172.20.0.210/16"
+                }
+        ]
+      }
+    }'
+---
+# Source: oai-cu-level1/templates/multus.yaml
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition 
+metadata:
+  name: oai-cu-level1-n3
+spec:
+  config: '{ 
+      "cniVersion": "0.3.1",
+      "type": "ipvlan",
+      "master":"eth0",
+      "mode": "l2",
+      "ipam": {
+        "type": "static",
+        "addresses": [
+                {
+                        "address":"172.20.0.211/16"
+                }
+        ]
+      }
+    }'
+---
+# Source: oai-cu-level1/templates/multus.yaml
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition 
+metadata:
+  name: oai-cu-level1-f1
+spec:
+  config: '{ 
+      "cniVersion": "0.3.1",
+      "type": "ipvlan",
+      "master": "eth0",
+      "mode": "bridge",
+      "ipam": {
+        "type": "static",
+        "addresses": [
+                {
+                        "address":"172.20.0.212/16"
+                }
+        ]
+      }
+    }'
