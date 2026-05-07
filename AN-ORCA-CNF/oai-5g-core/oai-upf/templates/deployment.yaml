@@ -108,6 +108,15 @@ spec:
             name: configuration
         securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  N3_IP_ADDRESS=$(ip -f inet addr show n3 | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | awk '{print $2}' | cut -d/ -f1);
+                  ip route replace {{ .Values.config.gnbN3Ip | quote }}/32 dev n3 src $N3_IP_ADDRESS || true;
         {{- if .Values.readinessProbe}}
         readinessProbe:
           exec:

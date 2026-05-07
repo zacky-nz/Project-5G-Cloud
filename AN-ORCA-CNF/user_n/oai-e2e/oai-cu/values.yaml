@@ -48,6 +48,7 @@ config:
 
   duHost: "172.20.0.213"   
   amfhost: "172.20.0.200"  
+  upfHost: "172.20.0.201"
 
   n2IfName: "n2"
   n3IfName: "n3"
@@ -72,11 +73,11 @@ tcpdumpimage:
   pullPolicy: IfNotPresent
 
 resources:
-  define: false
+  define: true
   limits:
     nf:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 500m
+      memory: 512Mi
     tcpdump:
       cpu: 100m
       memory: 128Mi

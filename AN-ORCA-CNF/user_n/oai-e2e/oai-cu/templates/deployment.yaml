@@ -88,6 +88,7 @@ spec:
               F1_IP_ADDRESS=$(ip -f inet addr show $F1_IF_NAME | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | awk '{print $2}' | cut -d/ -f1);
               ip route replace $AMF_IP_ADDRESS/32 dev $N2_IF_NAME src $N2_IP_ADDRESS || true;
               ip route replace $DU_HOST/32 dev $F1_IF_NAME src $F1_IP_ADDRESS || true;
+              ip route replace $UPF_HOST/32 dev $N3_IF_NAME src $N3_IP_ADDRESS || true;
               sed -e s/@N2_IP_ADDRESS@/$N2_IP_ADDRESS/g \
                   -e s/@N3_IP_ADDRESS@/$N3_IP_ADDRESS/g \
                   -e s/@F1_IP_ADDRESS@/$F1_IP_ADDRESS/g \
@@ -109,6 +110,8 @@ spec:
               value: "1"
             - name: AMF_HOST
               value: {{ .Values.config.amfhost | quote }}
+            - name: UPF_HOST
+              value: {{ .Values.config.upfHost | quote }}
             - name: N2_IF_NAME
               value: {{ .Values.config.n2IfName | quote }}
             - name: N3_IF_NAME

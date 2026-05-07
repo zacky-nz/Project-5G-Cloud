@@ -161,6 +161,8 @@ oai-upf:
       ## If you do not want to add any routes in your pod then leave this field empty
       routes: ""
       hostInterface: "eth0"
+  config:
+    gnbN3Ip: "172.20.0.211"
   #NOTE: If the interface you selected for n6If is wrong then traffic will not be routed towards internet
   nodeSelector: {}
   # nodeName: node3

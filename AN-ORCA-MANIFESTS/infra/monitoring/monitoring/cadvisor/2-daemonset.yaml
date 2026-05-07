@@ -19,11 +19,11 @@ spec:
         image: gcr.io/cadvisor/cadvisor:v0.46.0
         resources:
           requests:
-            memory: 400Mi
-            cpu: 400m
+            memory: 128Mi
+            cpu: 100m
           limits:
-            memory: 2000Mi
-            cpu: 800m
+            memory: 512Mi
+            cpu: 500m
         volumeMounts:
         - name: rootfs
           mountPath: /rootfs

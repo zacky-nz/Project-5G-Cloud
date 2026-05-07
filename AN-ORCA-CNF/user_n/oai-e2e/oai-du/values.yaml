@@ -73,18 +73,18 @@ tcpdumpimage:
    pullPolicy: IfNotPresent
 
 resources:
-  define: false
+  define: true
   limits:
     nf:
-      cpu: 2000m
+      cpu: 2500m
       memory: 2Gi
     tcpdump:
       cpu: 200m
       memory: 128Mi
   requests:
     nf:
-      cpu: 2000m
-      memory: 2Gi
+      cpu: 1000m
+      memory: 1Gi
     tcpdump:
       cpu: 100m
       memory: 128Mi
