@@ -184,8 +184,8 @@ data:
           tr_s_preference  = "local_L1";
           tr_n_preference  = "f1";
           local_n_if_name =  "f1";
-          local_n_address = "172.20.213";
-          remote_n_address = "172.20.1.212";
+          local_n_address = "172.20.0.213";
+          remote_n_address = "172.20.0.212";
           local_n_portc   = 500;
           local_n_portd   = 2152;
           remote_n_portc  = 501;
@@ -336,11 +336,12 @@ spec:
           protocol: UDP
         command: [ "/bin/bash", "-c" ]
         args:
-         -  CU_IP_ADDRESS=$(getent hosts $CU_HOST | awk '{print $1}')
-            CU_IP_ADDRESS=$(if [[ $CU_IP_ADDRESS ]]; then echo $CU_IP_ADDRESS; else echo $CU_HOST;fi)
-            F1_DU_IP_ADDRESS=$(ip -f inet addr show $F1_IF_NAME | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*");
-            sed -e s/@F1_DU_IP_ADDRESS@/$F1_DU_IP_ADDRESS/g
-                -e s/@CU_IP_ADDRESS@/$CU_IP_ADDRESS/g
+          - |
+            CU_IP_ADDRESS=$(getent hosts $CU_HOST | awk '{print $1}');
+            CU_IP_ADDRESS=$(if [[ $CU_IP_ADDRESS ]]; then echo $CU_IP_ADDRESS; else echo $CU_HOST; fi);
+            F1_DU_IP_ADDRESS=$(ip -f inet addr show $F1_IF_NAME | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | awk '{print $2}' | cut -d/ -f1);
+            sed -e s/@F1_DU_IP_ADDRESS@/$F1_DU_IP_ADDRESS/g \
+                -e s/@CU_IP_ADDRESS@/$CU_IP_ADDRESS/g \
                 /opt/oai-gnb/etc/du.conf | tee /tmp/du.conf;
             exec /opt/oai-gnb/bin/nr-softmodem -O /tmp/du.conf $USE_ADDITIONAL_OPTIONS;
         env:
@@ -352,7 +353,7 @@ spec:
           - name: F1_IF_NAME
             value: f1
           - name: CU_HOST
-            value: 172.20.1.212
+            value: 172.20.0.212
       volumes:
       - configMap:
           name: oai-du-level1-configmap
@@ -360,7 +361,7 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      serviceAccountName: 
+      serviceAccountName: oai-du-level1-sa
       terminationGracePeriodSeconds: 5
       nodeName: awanbaru
 ---
@@ -379,7 +380,7 @@ spec:
       "type": "static",
       "addresses": [
         {
-          "address":"172.20.1.213/16"
+          "address":"172.20.0.213/16"
         }
       ]
     }

@@ -23,7 +23,7 @@ multus:
 
 config:
   timeZone: "UTC"
-  rfSimServer: "172.20.1.213"
+  rfSimServer: "oai-du-rfsim"
   fullImsi: "208990100001101"
   fullKey: "a92d71ed92f43ebae1720f34fd2e6966"
   opc: "C42449363BBAD02B66D16BC975D77CC1"

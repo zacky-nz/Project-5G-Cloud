@@ -30,8 +30,8 @@ data:
           tr_s_preference = "f1";
 
           local_s_if_name = "f1";
-          local_s_address = "172.20.1.212";
-          remote_s_address = "172.20.1.213"; 
+          local_s_address = "{{ .Values.multus.f1Interface.IPadd }}";
+          remote_s_address = "{{ .Values.config.duHost }}";
           local_s_portc   = 501;
           local_s_portd   = 2152;
           remote_s_portc  = 500;

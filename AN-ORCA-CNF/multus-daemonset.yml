@@ -111,8 +111,8 @@ data:
   daemon-config.json: |
     {
         "chrootDir": "/hostroot",
-        "confDir": "/host/etc/cni/net.d",
         "logLevel": "verbose",
+        "logToStderr": true,
         "socketDir": "/host/run/multus/",
         "cniVersion": "0.3.1",
         "cniConfigDir": "/host/etc/cni/net.d",
@@ -163,15 +163,19 @@ spec:
               memory: "50Mi"
           securityContext:
             privileged: true
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - name: cni
               mountPath: /host/etc/cni/net.d
+            - name: cnibin
+              mountPath: /opt/cni/bin
             - name: host-run
               mountPath: /host/run
             - name: host-var-lib-cni-multus
               mountPath: /var/lib/cni/multus
             - name: host-var-lib-kubelet
               mountPath: /var/lib/kubelet
+              mountPropagation: HostToContainer
             - name: host-run-k8s-cni-cncf-io
               mountPath: /run/k8s.cni.cncf.io
             - name: host-run-netns
@@ -183,31 +187,41 @@ spec:
             - name: hostroot
               mountPath: /hostroot
               mountPropagation: HostToContainer
+            - name: multus-conf-dir
+              mountPath: /etc/cni/multus/net.d
+          env:
+            - name: MULTUS_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
       initContainers:
         - name: install-multus-binary
           image: ghcr.io/k8snetworkplumbingwg/multus-cni:snapshot-thick
           command:
-            - "cp"
-            - "/usr/src/multus-cni/bin/multus-shim"
-            - "/host/var/lib/rancher/k3s/data/current/bin/multus-shim"
+            - "/usr/src/multus-cni/bin/install_multus"
+            - "-d"
+            - "/host/opt/cni/bin"
+            - "-t"
+            - "thick"
           resources:
             requests:
               cpu: "10m"
               memory: "15Mi"
           securityContext:
             privileged: true
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - name: cnibin
-              mountPath: /host/var/lib/rancher/k3s/data/current/bin
+              mountPath: /host/opt/cni/bin
               mountPropagation: Bidirectional
       terminationGracePeriodSeconds: 10
       volumes:
         - name: cni
           hostPath:
-            path: /var/lib/rancher/k3s/agent/etc/cni/net.d
+            path: /etc/cni/net.d
         - name: cnibin
           hostPath:
-            path: /var/lib/rancher/k3s/data/current/bin
+            path: /opt/cni/bin
         - name: hostroot
           hostPath:
             path: /
@@ -232,3 +246,6 @@ spec:
         - name: host-run-netns
           hostPath:
             path: /run/netns/
+        - name: multus-conf-dir
+          hostPath:
+            path: /etc/cni/multus/net.d

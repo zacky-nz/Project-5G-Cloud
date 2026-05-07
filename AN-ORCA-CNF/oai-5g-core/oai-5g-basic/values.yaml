@@ -90,8 +90,8 @@ oai-amf:
     n2Interface:
       create: true
       # create : false
-      Ipadd: "172.20.6.200"
-      Netmask: "24"
+      Ipadd: "172.20.0.200"
+      Netmask: "16"
       # #name inside the pod is hardcoded right now
       # name: "n2"
       ## If you do not have a gateway leave the field empty
@@ -127,8 +127,8 @@ oai-upf:
     n3Interface:
       create: true
       # create : false
-      Ipadd: "172.20.8.201"
-      Netmask: "24"
+      Ipadd: "172.20.0.201"
+      Netmask: "16"
       # #name inside the pod is hardcoded right now
       # name: "n3"
       ## If you do not have a gateway leave the field empty
@@ -140,8 +140,8 @@ oai-upf:
     n4Interface:
       create: true
       # create : false
-      Ipadd: "172.20.7.201"
-      Netmask: "24"
+      Ipadd: "172.20.0.202"
+      Netmask: "16"
       # #name inside the pod is hardcoded right now
       # name: "n4"
       ## If you do not have a gateway leave the field empty
@@ -199,8 +199,8 @@ oai-smf:
     n4Interface:
       create: true
       # create : false
-      Ipadd: "172.20.7.202"
-      Netmask: "24"
+      Ipadd: "172.20.0.203"
+      Netmask: "16"
       ## If you do not have a gateway leave the field empty
       Gateway: ""
       ## If you do not want to add any routes in your pod then leave this field empty

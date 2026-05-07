@@ -22,7 +22,7 @@ multus:
     hostInterface: "eth0"
   ruInterface:
     create: false
-    IPadd:  ""  # "172.20.1.213"
+    IPadd:  ""  # "172.20.0.213"
     Netmask: ""
     hostInterface: "eth0"
 
@@ -32,7 +32,7 @@ config:
   useAdditionalOptions: >
     --sa
     --rfsim
-    --rfsimulator.serveraddr 0.0.0.0
+    --rfsimulator.serveraddr server
     --rfsimulator.serverport 4043
     -r 106
     --numerology 1
@@ -51,7 +51,7 @@ config:
   usrp: rfsim
   
   f1IfName: "f1"
-  cuHost: "172.20.1.212"
+  cuHost: "172.20.0.212"
   f1cuPort: "2152"
   f1duPort: "2152"
   f1cLocalPort: "500"

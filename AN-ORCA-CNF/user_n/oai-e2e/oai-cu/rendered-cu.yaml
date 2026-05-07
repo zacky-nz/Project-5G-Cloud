@@ -37,8 +37,8 @@ data:
           tr_s_preference = "f1";
 
           local_s_if_name = "f1";
-          local_s_address = "172.20.1.212";
-          remote_s_address = "172.20.1.213"; 
+          local_s_address = "172.20.0.212";
+          remote_s_address = "172.20.0.213";
           local_s_portc   = 501;
           local_s_portd   = 2152;
           remote_s_portc  = 500;
@@ -181,7 +181,7 @@ spec:
 
       containers:
         - name: gnbcu
-          image: "docker.io/oaisoftwarealliance/oai-gnb:2023.w49"
+          image: "docker.io/oaisoftwarealliance/oai-gnb:2024.w25"
           securityContext:
             privileged: true
 
@@ -219,7 +219,7 @@ spec:
 
           env:
             - name: DU_HOST
-              value: "172.20.1.213"
+              value: "172.20.0.213"
             - name: TZ
               value: "UTC"
             - name: USE_ADDITIONAL_OPTIONS
@@ -243,7 +243,7 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      serviceAccountName: 
+      serviceAccountName: oai-cu-level1-sa
       terminationGracePeriodSeconds: 5
       nodeName: awanbaru
 ---
