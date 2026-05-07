@@ -1,211 +1,623 @@
 # Project-5G-Cloud
 
-Adaptive Networking research with the aim of minimizing resource usage.
+Cloud-native 5G network simulation and deployment project using Kubernetes, OpenAirInterface (OAI), Multus CNI, Helm, Argo CD, and ORCA dashboard.
 
-## Ringkasan Proyek
+This project is part of the research:
 
-Project ini berisi komponen ORCA (Open RAN Configuration App) untuk simulasi dan deployment 5G berbasis cloud native. Sistem memakai Kubernetes sebagai container orchestrator, Cloud-native Network Function (CNF), OpenAirInterface (OAI), serta aplikasi frontend dan backend untuk otomasi deployment.
+**5G Network Simulation System Based on Centralized Dashboard in Cloud Native Environment**
 
-Nama penelitian: 5G Network Simulation System Based on Centralized Dashboard in Cloud Native Environment.
+The system focuses on adaptive networking and 5G deployment automation with the goal of minimizing resource usage while maintaining a functional cloud-native 5G simulation environment.
 
-## Tim dan Role
+---
 
-| Nama | NIM | Role |
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Team and Roles](#team-and-roles)
+- [System Architecture](#system-architecture)
+- [Repository Structure](#repository-structure)
+- [Technology Stack](#technology-stack)
+- [Current Infrastructure](#current-infrastructure)
+- [Namespace Layout](#namespace-layout)
+- [Network and Interface Plan](#network-and-interface-plan)
+- [Important Fixes Applied](#important-fixes-applied)
+- [Deployment Notes](#deployment-notes)
+- [Verification Runbook](#verification-runbook)
+- [Control Plane Verification](#control-plane-verification)
+- [Dataplane Testing](#dataplane-testing)
+- [UPF Dataplane Debugging](#upf-dataplane-debugging)
+- [Common Issues and Solutions](#common-issues-and-solutions)
+- [Known Current State](#known-current-state)
+- [GitOps and Argo CD Notes](#gitops-and-argo-cd-notes)
+- [Research Testing Results](#research-testing-results)
+
+---
+
+## Project Overview
+
+Project-5G-Cloud contains ORCA, OAI CNF manifests, Helm charts, and Kubernetes configuration used to deploy a simulated 5G network in a cloud-native environment.
+
+The system includes:
+
+- 5G Core Network based on OpenAirInterface
+- RAN simulation using OAI CU, DU, and NR-UE
+- RF simulator mode for UE-to-DU connectivity
+- Multus CNI for secondary 5G network interfaces
+- Flannel as the primary Kubernetes CNI
+- Longhorn for storage
+- Argo CD for GitOps
+- ORCA dashboard for centralized deployment and monitoring automation
+
+---
+
+## Team and Roles
+
+| Name | Student ID | Role |
 | --- | --- | --- |
 | Ari Erginta Ginting | 1101204178 | Infrastructure |
 | Ima Dewi Arofani | 1101204375 | Frontend |
 | Bagus Dwi Prasetyo | 1101204109 | Backend |
 | M. Rafli Hadiana | 1101202426 | 5G System |
 
-## Status Infrastruktur Saat Ini
+---
 
-Data berikut disesuaikan dengan screenshot node `awanbaru` yang diberikan.
+## System Architecture
 
-| Item | Nilai |
-| --- | --- |
-| Node | `tr-an` |
-| Host/VM | `awanbaru` |
-| IP node | `172.20.0.11` |
-| IPv6 | `fe80::be24:11ff:fef3:2de0` |
-| CPU | 16 vCPU |
-| CPU usage | 2.35% dari 16 CPU |
-| RAM | 23.00 GiB total, 10.10 GiB terpakai |
-| RAM usage | 43.92% |
-| Boot disk | 100.00 GiB |
-| HA state | none |
-| Status | running |
+The system is deployed on Kubernetes using a cloud-native architecture.
 
-Catatan:
+Main components:
 
-- Screenshot slide sidang menampilkan desain awal 3 node: 1 master dan 2 worker.
-- Kondisi runtime saat ini terlihat sebagai 1 node aktif dengan 16 vCPU, 23 GiB RAM, dan 100 GiB boot disk.
-- Jangan mencampur data desain awal dengan data runtime saat troubleshooting.
+```text
+User / Operator
+      |
+      v
+ORCA Dashboard
+      |
+      v
+Kubernetes API / Helm / Argo CD
+      |
+      v
++-----------------------------+
+| Kubernetes Cluster           |
+|                              |
+|  core-network namespace      |
+|  - AMF                       |
+|  - SMF                       |
+|  - UPF                       |
+|  - NRF                       |
+|  - AUSF                      |
+|  - UDM                       |
+|  - UDR                       |
+|  - MySQL                     |
+|                              |
+|  ran-network namespace       |
+|  - OAI CU                    |
+|  - OAI DU                    |
+|  - OAI NR-UE                 |
+|                              |
+|  kube-system                 |
+|  - Flannel                   |
+|  - Multus                    |
+|                              |
+|  longhorn-system             |
+|  - Longhorn storage          |
++-----------------------------+
+```
 
-## Struktur Repository
+---
+
+## Repository Structure
 
 ```text
 Project-5G-Cloud/
-|-- AN-OPEN-NETRA-FE/      # Frontend ORCA
-|-- AN-ORCA-CNF/           # Helm chart dan manifest CNF/OAI
-|   |-- oai-5g-core/       # 5G core charts
-|   |-- user_n/            # RAN, CU, DU, dan UE charts
-|   `-- multus-daemonset.yml
-|-- AN-ORCA-MANIFESTS/     # Manifest aplikasi dan infrastruktur
-`-- README.md
+├── AN-OPEN-NETRA-FE/          # ORCA frontend
+├── AN-ORCA-CNF/               # OAI CNF Helm charts and manifests
+│   ├── oai-5g-core/           # 5G Core Helm charts
+│   ├── user_n/                # RAN, CU, DU, and UE Helm charts
+│   └── multus-daemonset.yml   # Multus CNI manifest
+├── AN-ORCA-MANIFESTS/         # Application and infrastructure manifests
+└── README.md
 ```
 
-## Stack Utama
+---
 
-Infrastructure:
+## Technology Stack
 
-- Kubernetes vanilla/kubeadm, bukan K3s
-- Flannel sebagai primary CNI
-- Multus CNI sebagai secondary CNI untuk interface 5G
-- Longhorn untuk storage management
-- Argo CD untuk GitOps
-- Jenkins untuk automation flow
-- Prometheus dan Grafana untuk monitoring
+### Infrastructure
 
-5G Software:
+- Kubernetes vanilla / kubeadm
+- Flannel CNI as the primary CNI
+- Multus CNI as the secondary CNI
+- Longhorn for storage management
+- Argo CD for GitOps
+- Jenkins for automation flow
+- Prometheus and Grafana for monitoring
 
-- OpenAirInterface (OAI)
-- Helm chart untuk 5G core, CU, DU, dan UE
-- Namespace yang sering dipakai: `core-network` dan `ran-network`
+### 5G Network
 
-ORCA Application:
+- OpenAirInterface 5G Core
+- OpenAirInterface CU / DU / NR-UE
+- Helm charts for CNF deployment
+- RF simulator for DU and UE connection
+- Secondary interfaces for N2, N3, N4, and F1
+
+### ORCA Application
 
 - Frontend: React
-- Backend: Django, Django REST Framework, Django Channels
-- Database dan broker: PostgreSQL dan Redis
-- Integrasi deployment: Helm, Kubernetes API, dan Python subprocess
+- Backend: Django
+- API: Django REST Framework
+- Realtime communication: Django Channels
+- Database and broker: PostgreSQL and Redis
+- Deployment integration: Helm, Kubernetes API, and Python subprocess
 
-## Perbaikan yang Dilakukan di Repo
+---
 
-Perubahan ini hanya menyentuh file di dalam `~/Project-5G-Cloud`.
+## Current Infrastructure
 
-| File | Perubahan |
+Current runtime environment:
+
+| Item | Value |
 | --- | --- |
-| `AN-ORCA-CNF/multus-daemonset.yml` | Path K3s diganti ke path vanilla Kubernetes: `/etc/cni/net.d` dan `/opt/cni/bin`. |
-| `AN-ORCA-CNF/oai-5g-core/oai-5g-basic/values.yaml` | IP Multus AMF/UPF/SMF diselaraskan ke subnet runtime `172.20.0.0/16`. |
-| `AN-ORCA-CNF/user_n/oai-e2e/oai-cu/values.yaml` | Nama interface CU diselaraskan dengan annotation Multus: `n2`, `n3`, dan `f1`. |
-| `AN-ORCA-CNF/user_n/oai-e2e/oai-cu/templates/` | Alamat F1 dan `DU_HOST` dibuat mengikuti values, bukan hardcode `172.20.1.x`. |
-| `AN-ORCA-CNF/user_n/oai-e2e/oai-du/` | `cuHost`, alamat F1 DU, service account, dan startup command diselaraskan dengan IP CU/DU di values. |
-| `README.md` | Catatan lama dirapikan, duplikasi dihapus, dan data resource disesuaikan dengan screenshot terbaru. |
+| Node | `tr-an` |
+| Host / VM | `awanbaru` |
+| Node IP | `172.20.0.11` |
+| IPv6 | `fe80::be24:11ff:fef3:2de0` |
+| CPU | 16 vCPU |
+| RAM | 23 GiB |
+| Boot Disk | 100 GiB |
+| HA State | none |
+| Status | running |
 
-## Guardrail Perubahan
+Notes:
 
-- Tidak ada file di luar `~/Project-5G-Cloud` yang diedit.
-- Perubahan live seperti `/etc/cni/net.d/00-multus.conf`, `/opt/cni/bin`, restart pod, atau patch resource Kubernetes membutuhkan persetujuan eksplisit terlebih dahulu.
-- Perintah `kubectl delete pod`, `sudo tee`, `sudo ip link`, dan edit file host di luar repo tidak dijalankan dalam perbaikan ini.
+- The initial design used 3 nodes: 1 master and 2 worker nodes.
+- The current runtime environment uses 1 active node.
+- Do not mix the initial design data with the current troubleshooting data.
 
-## Root Cause yang Sedang Ditangani
+---
 
-Masalah utama yang tercatat adalah pod OAI gagal menemukan interface tambahan seperti `n2` dan `n3`.
+## Namespace Layout
 
-Gejala yang pernah muncul:
+Recommended namespace separation:
 
-```text
-Failed to probe n2 inet addr: error No such device
-Validation of AMF not successful: Error in reading network interface n2
-Failed to probe n3 inet addr: error No such device
-```
+| Namespace | Purpose |
+| --- | --- |
+| `core-network` | 5G Core Network components |
+| `ran-network` | OAI CU, DU, and NR-UE |
+| `kube-system` | Kubernetes system components, Flannel, and Multus |
+| `longhorn-system` | Longhorn storage |
+| `argocd` | Argo CD |
+| `monitoring` | Prometheus and monitoring components |
 
-Kemungkinan penyebab:
-
-- Multus daemonset sebelumnya memasang `multus-shim` ke path K3s.
-- Cluster yang digunakan adalah vanilla Kubernetes, sehingga kubelet membaca CNI dari `/etc/cni/net.d` dan binary CNI dari `/opt/cni/bin`.
-- Jika `multus-shim` tidak ada di `/opt/cni/bin`, kubelet tidak dapat menjalankan Multus dengan benar.
-- Jika config CNI tidak ada di `/etc/cni/net.d`, kubelet tidak membaca konfigurasi Multus yang benar.
-
-## Konfigurasi Multus yang Diharapkan
-
-Untuk thick Multus, konfigurasi host yang biasanya diperlukan:
-
-```json
-{
-  "cniVersion": "0.3.1",
-  "name": "multus-cni-network",
-  "type": "multus-shim",
-  "socketDir": "/run/multus/"
-}
-```
-
-Lokasi host yang relevan:
+Expected active components:
 
 ```text
-/etc/cni/net.d/00-multus.conf
-/etc/cni/net.d/10-flannel.conflist
-/etc/cni/net.d/multus.d/multus.kubeconfig
-/opt/cni/bin/multus-shim
-/run/multus/multus.sock
+core-network:
+- basic-mysql
+- oai-amf
+- oai-ausf
+- oai-nrf
+- oai-smf
+- oai-udm
+- oai-udr
+- oai-upf
+
+ran-network:
+- oai-cu-level1
+- oai-du-level1
+- oai-nr-ue-level1
 ```
 
-## IP dan Interface yang Diselaraskan
+Old or duplicate RAN components in `core-network` should be removed or scaled down.
 
-Core network:
+---
 
-| Komponen | Interface | IP |
+## Network and Interface Plan
+
+### Core Network Interfaces
+
+| Component | Interface | IP Address |
 | --- | --- | --- |
 | AMF | `n2` | `172.20.0.200/16` |
 | UPF | `n3` | `172.20.0.201/16` |
 | UPF | `n4` | `172.20.0.202/16` |
 | SMF | `n4` | `172.20.0.203/16` |
 
-RAN/CU:
+### RAN Interfaces
 
-| Komponen | Interface | IP |
+| Component | Interface | IP Address |
 | --- | --- | --- |
 | CU | `n2` | `172.20.0.210/16` |
 | CU | `n3` | `172.20.0.211/16` |
 | CU | `f1` | `172.20.0.212/16` |
 | DU | `f1` | `172.20.0.213/16` |
+| UE | RF simulator | `172.20.1.214/24` |
 
-## Runbook Verifikasi
+### UE Tunnel
 
-Jalankan perintah berikut setelah perubahan repo di-apply ke cluster.
+Expected UE tunnel after successful PDU session:
 
-```bash
-kubectl get pods --all-namespaces
-kubectl get network-attachment-definitions --all-namespaces
-kubectl logs -n kube-system -l app=multus -c kube-multus --tail=50
-kubectl get pod -n core-network -l app.kubernetes.io/name=oai-amf -o jsonpath='{.items[0].metadata.annotations.k8s\.v1\.cni\.cncf\.io/networks-status}'
-kubectl get pod -n core-network -l app.kubernetes.io/name=oai-upf -o jsonpath='{.items[0].metadata.annotations.k8s\.v1\.cni\.cncf\.io/networks-status}'
+```text
+oaitun_ue1: 12.1.1.100/24
+UPF tun0:   12.1.1.1/24
 ```
 
-Interface yang perlu terlihat di pod:
+---
+
+## Important Fixes Applied
+
+The following fixes were applied during troubleshooting:
+
+| Area | Fix |
+| --- | --- |
+| Multus CNI | Fixed Multus daemonset and CNI path for vanilla Kubernetes |
+| CNI path | Updated from K3s path to `/etc/cni/net.d` and `/opt/cni/bin` |
+| CU configuration | Aligned `n2`, `n3`, and `f1` interface names with Multus annotations |
+| DU configuration | Aligned DU F1 address and CU host configuration |
+| RFSIM | Configured DU as RF simulator server and UE to connect to `oai-du-rfsim` service |
+| AMF and UPF | Recreated pods so Multus interfaces `n2`, `n3`, and `n4` were attached properly |
+| OAI image | Used compatible RAN image version to avoid F1 decode errors |
+| Routing | Updated CU / DU route and interface configuration |
+| Namespace cleanup | Active RAN path moved to `ran-network`; old duplicate RAN in `core-network` should be disabled |
+
+---
+
+## Deployment Notes
+
+### Install Core Network
+
+```bash
+helm install basic ./AN-ORCA-CNF/oai-5g-core/oai-5g-basic/ -n core-network
+```
+
+### Install RAN Single UE Scenario
+
+```bash
+helm install oai-cu-level1 ./AN-ORCA-CNF/user_n/oai-e2e/oai-cu/ -n ran-network
+helm install oai-du-level1 ./AN-ORCA-CNF/user_n/oai-e2e/oai-du/ -n ran-network
+helm install oai-nr-ue-level1 ./AN-ORCA-CNF/user_n/oai-e2e/oai-nr-ue/ -n ran-network
+```
+
+### Upgrade Core Network
+
+```bash
+helm upgrade basic ./AN-ORCA-CNF/oai-5g-core/oai-5g-basic/ -n core-network
+```
+
+### Upgrade RAN
+
+```bash
+helm upgrade oai-cu-level1 ./AN-ORCA-CNF/user_n/oai-e2e/oai-cu/ -n ran-network
+helm upgrade oai-du-level1 ./AN-ORCA-CNF/user_n/oai-e2e/oai-du/ -n ran-network
+helm upgrade oai-nr-ue-level1 ./AN-ORCA-CNF/user_n/oai-e2e/oai-nr-ue/ -n ran-network
+```
+
+---
+
+## Verification Runbook
+
+### 1. Check Pods
+
+```bash
+kubectl get pods -A
+kubectl get pods -n core-network
+kubectl get pods -n ran-network
+```
+
+Expected:
+
+```text
+core-network:
+AMF, SMF, UPF, NRF, AUSF, UDM, UDR, MySQL = Running
+
+ran-network:
+CU, DU, NR-UE = Running
+```
+
+### 2. Check Multus Network Attachment Definitions
+
+```bash
+kubectl get network-attachment-definitions -A
+```
+
+### 3. Check Multus Logs
+
+```bash
+kubectl logs -n kube-system -l app=multus -c kube-multus --tail=50
+```
+
+### 4. Check Network Status Annotation
+
+```bash
+kubectl get pod -n core-network -l app.kubernetes.io/name=oai-amf \
+  -o jsonpath='{.items[0].metadata.annotations.k8s\.v1\.cni\.cncf\.io/networks-status}'
+
+kubectl get pod -n core-network -l app.kubernetes.io/name=oai-upf \
+  -o jsonpath='{.items[0].metadata.annotations.k8s\.v1\.cni\.cncf\.io/networks-status}'
+```
+
+### 5. Check Required Interfaces
 
 ```bash
 kubectl exec -n core-network deploy/oai-amf -- ip addr show n2
 kubectl exec -n core-network deploy/oai-upf -- ip addr show n3
 kubectl exec -n core-network deploy/oai-upf -- ip addr show n4
+
 kubectl exec -n ran-network deploy/oai-cu-level1 -- ip addr show n2
 kubectl exec -n ran-network deploy/oai-cu-level1 -- ip addr show n3
 kubectl exec -n ran-network deploy/oai-cu-level1 -- ip addr show f1
+kubectl exec -n ran-network deploy/oai-du-level1 -- ip addr show f1
 ```
 
-Jika interface sudah muncul, restart AMF, UPF, lalu CU secara berurutan.
+---
+
+## Control Plane Verification
+
+### DU to CU F1 Setup
 
 ```bash
-kubectl delete pod -n core-network -l app.kubernetes.io/name=oai-amf
-kubectl delete pod -n core-network -l app.kubernetes.io/name=oai-upf
-kubectl delete pod -n ran-network -l app=oai-cu
+kubectl logs -n ran-network deploy/oai-du-level1 | grep -Ei "f1|f1ap|setup|connected"
+kubectl logs -n ran-network deploy/oai-cu-level1 | grep -Ei "f1|f1ap|du|setup|connected"
 ```
 
-## Catatan Penting
+Expected indicators:
 
-- Untuk cluster yang dikelola Argo CD, perubahan sebaiknya masuk lewat Git lalu disinkronkan oleh Argo CD.
-- Hindari patch manual live cluster kecuali untuk emergency debugging.
-- Jika harus mengubah file host seperti `/etc/cni/net.d/00-multus.conf`, minta persetujuan dulu karena itu di luar direktori repo.
-- Pantau resource sebelum restart banyak pod sekaligus, terutama RAM dan Longhorn volume mount.
+```text
+F1 Setup Request
+F1 Setup Response
+DU connected
+```
 
-## Kapasitas dari Hasil Penelitian
+### CU to AMF NG Setup
 
-| Resource | RPU | Toleransi 5% | Pembulatan |
+```bash
+kubectl logs -n ran-network deploy/oai-cu-level1 | grep -Ei "ngap|amf|sctp|setup|connected"
+kubectl logs -n core-network deploy/oai-amf | grep -Ei "ngap|gnb|sctp|setup|registration"
+```
+
+Expected indicators:
+
+```text
+NG Setup Request
+NG Setup Response
+gNB connected
+```
+
+### UE Registration
+
+```bash
+kubectl logs -n ran-network deploy/oai-nr-ue-level1 | grep -Ei "registration|registered|pdu|session|nas|rrc|connected"
+kubectl logs -n core-network deploy/oai-amf | grep -Ei "ue|registration|5gmm|authentication|security"
+kubectl logs -n core-network deploy/oai-smf | grep -Ei "pdu|session|active|upf|n4"
+```
+
+Expected indicators:
+
+```text
+RRC_CONNECTED
+5GMM-REGISTERED
+PDU session ACTIVE
+```
+
+---
+
+## Dataplane Testing
+
+### 1. Check UE Tunnel
+
+```bash
+kubectl exec -n ran-network -it deploy/oai-nr-ue-level1 -- bash
+```
+
+Inside the UE pod:
+
+```bash
+ip addr show oaitun_ue1
+ip route
+```
+
+Expected:
+
+```text
+oaitun_ue1: 12.1.1.100/24
+```
+
+### 2. Ping UPF Tunnel Gateway
+
+```bash
+ping -I oaitun_ue1 -c 4 12.1.1.1
+```
+
+Expected:
+
+```text
+4 packets transmitted, 4 received
+```
+
+If this fails, troubleshoot N3 / GTP-U / UPF PDR-FAR first.
+
+### 3. Ping Internet
+
+```bash
+ip route replace 8.8.8.8 dev oaitun_ue1
+ping -c 4 8.8.8.8
+```
+
+### 4. Test HTTP
+
+```bash
+curl --interface oaitun_ue1 http://example.com
+```
+
+---
+
+## UPF Dataplane Debugging
+
+If UE receives IP but cannot ping `12.1.1.1`, run tcpdump from a debug container because the UPF image may not include `tcpdump`.
+
+```bash
+kubectl debug -n core-network -it pod/<upf-pod-name> \
+  --image=nicolaka/netshoot \
+  --target=upf \
+  -- bash
+```
+
+Inside debug container:
+
+```bash
+tcpdump -ni any "icmp or udp port 2152"
+```
+
+Then, from the UE pod:
+
+```bash
+ping -I oaitun_ue1 -c 4 12.1.1.1
+```
+
+Interpretation:
+
+| tcpdump Result | Meaning |
+| --- | --- |
+| No ICMP or UDP 2152 | UE traffic does not reach UPF; check CU N3 and GTP-U |
+| UDP 2152 appears but no ICMP on `tun0` | UPF receives GTP-U but PDR/FAR/TEID may not match |
+| ICMP appears on `tun0` but no reply | Check UPF `tun0`, iptables, and forwarding |
+| ICMP request and reply appear | Check return path to UE |
+
+---
+
+## SNAT and Forwarding
+
+Check UPF forwarding:
+
+```bash
+kubectl exec -n core-network -it deploy/oai-upf -- bash
+sysctl net.ipv4.ip_forward
+iptables -t nat -S
+iptables -S FORWARD
+```
+
+Expected:
+
+```text
+net.ipv4.ip_forward = 1
+POSTROUTING rule for 12.1.1.0/24
+```
+
+Example UPF NAT rule:
+
+```bash
+iptables -t nat -A POSTROUTING -s 12.1.1.0/24 -o eth0 -j MASQUERADE
+```
+
+If traffic reaches the host but cannot go out to the internet, check host forwarding and NAT:
+
+```bash
+sudo sysctl net.ipv4.ip_forward
+ip route | grep default
+sudo iptables -t nat -S | grep -E "MASQUERADE|10.244|12.1.1"
+```
+
+---
+
+## Common Issues and Solutions
+
+| Issue | Symptom | Root Cause | Solution |
+| --- | --- | --- | --- |
+| UE stuck `REG-INITIATED` | AMF shows `REG-INITIATED` | IMSI / Key / OPc mismatch | Verify UE credentials match the database |
+| `SUBSCRIPTION_DENIED` | AMF receives 403 from SMF | S-NSSAI or DNN not authorized | Align `sst`, `sd`, and `dnn` in UE, DB, and core config |
+| `oaitun_ue1` is down | No UE IP assigned | PDU session not established | Check AMF, SMF, and UPF logs |
+| Ping timeout | UE has IP but no connectivity | UPF routing, SNAT, N6, or N3 issue | Check N3 GTP-U, UPF PDR/FAR, and SNAT |
+| `CrashLoopBackOff` | Pod keeps restarting | Multus or interface error | Verify `nodeSelector`, `hostInterface`, and CNI path |
+| `AddressSanitizer` error | Error appears in RAN logs | Buggy or incompatible image version | Use compatible OAI RAN image |
+| CU not visible in AMF | gNB list is empty | N2 SCTP failure | Verify CU `n2` IP can reach AMF SCTP port |
+| `Device n2 does not exist` | AMF/CU fails to start | Multus did not attach interface | Check NAD, Multus daemonset, and CNI binary path |
+| F1 decode error | DU cannot connect to CU | CU/DU image or config mismatch | Align CU/DU image versions and F1 config |
+| UE cannot connect to DU | RF simulator connection fails | RFSIM server/client mismatch | Run DU as RFSIM server and UE as client to `oai-du-rfsim` |
+
+---
+
+## Known Current State
+
+The latest verified control-plane status:
+
+```text
+DU-CU F1 setup: success
+CU-AMF NG setup: success
+UE RF simulator connection to DU: success
+UE RRC state: RRC_CONNECTED
+AMF UE state: 5GMM-REGISTERED
+SMF PDU session: ACTIVE
+UE tunnel: oaitun_ue1 with IP 12.1.1.100/24
+```
+
+Current remaining dataplane issue:
+
+```text
+UE cannot ping 12.1.1.1 through oaitun_ue1.
+This indicates the issue is likely in N3 / GTP-U / UPF PDR-FAR handling,
+not in UE routing or NAT to the internet.
+```
+
+---
+
+## GitOps and Argo CD Notes
+
+This project uses Argo CD for GitOps.
+
+Important notes:
+
+- Do not enable Argo CD self-heal or sync before all working changes are committed to Git.
+- Manual cluster changes may be reverted by Argo CD if they are not reflected in the Git source.
+- The `orca-app` application may show `OutOfSync` while manual debugging changes exist.
+- Commit working configuration first, then run Argo CD sync.
+
+Check Argo CD application:
+
+```bash
+kubectl get application -n argocd orca-app
+kubectl get application -n argocd orca-app -o yaml | grep -Ei "repoURL|targetRevision|path|syncPolicy" -A5 -B3
+```
+
+Recommended flow:
+
+```bash
+git status
+git add .
+git commit -m "Fix OAI 5G RAN and core network configuration"
+git push origin <branch-name>
+```
+
+After confirming the pushed branch is the same branch used by Argo CD:
+
+```bash
+argocd app diff orca-app
+argocd app sync orca-app
+```
+
+---
+
+## Guardrails
+
+- Avoid editing live host files unless required for emergency debugging.
+- Prefer Git-based changes for Argo CD-managed resources.
+- Avoid deleting pods or patching resources manually unless the change is understood.
+- Before restarting multiple pods, check memory, storage, and Longhorn status.
+- Keep `core-network` for 5G core components only.
+- Keep active RAN components in `ran-network`.
+- Remove or scale down duplicate old RAN deployments in `core-network`.
+
+---
+
+## Research Testing Results
+
+### Resource Per User
+
+| Resource | RPU | 5% Tolerance | Rounded |
 | --- | --- | --- | --- |
 | CPU | 2781 mCPU | 2920 mCPU | 3000 mCPU |
 | RAM | 1965 MiB | 2063 MiB | 2100 MiB |
 
-Rumus:
+Formula:
 
 ```text
 Total CPU = total user x RPU CPU
@@ -213,13 +625,26 @@ Total RAM = total user x RPU RAM
 Total user = (total resource - idle resource) / RPU
 ```
 
-Hasil testing dari slide:
+### Functional Testing
 
-| Test | Jumlah | Hasil |
+| Test | Amount | Result |
 | --- | --- | --- |
-| API Testing | 38 API, masing-masing 30 kali | 100% sukses |
-| E2E Testing | 38 fungsi, masing-masing 10 kali | 100% sukses |
-| UAT Functional | 38 fitur | 100% sukses |
-| UAT SUS Score | 30 responden | 65.42 ke 77.1 |
+| API Testing | 38 APIs, 30 tests each | 100% success |
+| E2E Testing | 38 functions, 10 tests each | 100% success |
+| UAT Functional | 38 features | 100% success |
+| UAT SUS Score | 30 respondents | Improved from 65.42 to 77.1 |
 
-Max capacity E2E connection yang tercatat: 10 user, lalu drop di user ke-11.
+Recorded maximum E2E connection capacity:
+
+```text
+10 users stable
+Drop occurred at user 11
+```
+
+---
+
+## Maintainers
+
+This repository is maintained by the Project-5G-Cloud research team.
+
+For deployment, debugging, or GitOps changes, always verify the current Kubernetes state before applying modifications.
