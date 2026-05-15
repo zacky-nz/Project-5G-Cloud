@@ -134,6 +134,9 @@ echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
 ```bash
 kubectl get nodes -o wide
 kubectl version -o yaml
+kubectl get pods -A
+kubectl get sc
+kubectl get csidrivers
 systemctl status k3s --no-pager
 ```
 
@@ -173,11 +176,13 @@ helm version
 
 Longhorn dipasang juga di K3s agar setara dengan `awanbaru`.
 
+Keputusan saat ini: pakai Longhorn di `awanbagus`, karena baseline `awanbaru` sudah memakai Longhorn untuk PVC MySQL OAI. Jika keputusan riset berubah menjadi tanpa Longhorn, jangan jalankan section ini dan pastikan tidak ada namespace/pod `longhorn-system`.
+
 ```bash
 helm repo add longhorn https://charts.longhorn.io
 helm repo update
 
-kubectl create namespace longhorn-system
+kubectl create namespace longhorn-system --dry-run=client -o yaml | kubectl apply -f -
 
 helm install longhorn longhorn/longhorn \
   --namespace longhorn-system \
@@ -189,6 +194,7 @@ Tunggu sampai Running:
 ```bash
 kubectl get pods -n longhorn-system
 kubectl get storageclass
+kubectl get csidrivers
 ```
 
 Expected:
@@ -196,6 +202,7 @@ Expected:
 ```text
 longhorn-system pods Running
 StorageClass longhorn tersedia
+CSI driver longhorn.io tersedia
 ```
 
 Jika `longhorn` belum menjadi default StorageClass, set default:
@@ -208,25 +215,41 @@ kubectl patch storageclass longhorn \
 ## 8. Buat namespace OAI
 
 ```bash
-kubectl create namespace core-network
-kubectl create namespace ran-network
+kubectl create namespace core-network --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace ran-network --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-Jika sudah ada, command akan error `AlreadyExists`; itu aman, lanjut saja.
+Command ini aman dijalankan berulang. Jika namespace sudah ada, `kubectl apply` hanya memastikan object tetap ada.
 
-## 9. Berikutnya setelah K3s siap
+## 9. Urutan deploy aman
 
-Setelah K3s, Helm, dan Longhorn beres, lanjutkan tahap berikut:
+Jangan langsung deploy OAI setelah K3s selesai install. Urutan amannya:
 
-1. Pasang Multus varian K3s.
-2. Siapkan values Helm K3s dengan subnet `172.21.0.0/16`.
-3. Deploy OAI Core via Helm.
-4. Deploy OAI CU/DU/NR-UE via Helm.
-5. Validasi interface `n2`, `n3`, `n4`, `f1`.
-6. Validasi UE tunnel `oaitun_ue1`.
-7. Ping `12.1.1.1`.
+1. Install K3s.
+2. Verifikasi node `Ready`.
+3. Install Helm.
+4. Pastikan keputusan storage: untuk riset ini Longhorn dipakai agar setara dengan `awanbaru`.
+5. Install Longhorn dan pastikan pods, StorageClass, dan CSIDriver valid.
+6. Install Multus khusus K3s.
+7. Cek `NetworkAttachmentDefinition`.
+8. Siapkan values Helm K3s dengan IP `172.21.x.x`.
+9. Deploy OAI Core via Helm.
+10. Deploy CU, DU, NR-UE via Helm.
+11. Validasi interface `n2`, `n3`, `n4`, `f1`.
+12. Validasi UE tunnel `oaitun_ue1` dan ping `12.1.1.1`.
 
-Jangan lanjut deploy OAI sebelum K3s, Longhorn, dan Multus valid.
+Untuk tahap awal, berhenti dulu setelah command berikut sukses:
+
+```bash
+kubectl get nodes -o wide
+kubectl get pods -A
+helm version
+kubectl get pods -n longhorn-system
+kubectl get storageclass
+kubectl get csidrivers
+```
+
+Jangan lanjut deploy OAI sebelum K3s, Helm, Longhorn, dan Multus valid.
 
 ## 10. Catatan troubleshooting awal
 
