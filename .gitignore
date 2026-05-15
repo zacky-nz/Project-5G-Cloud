@@ -1,0 +1,22 @@
+# Local runtime and generated files
+.env
+.env.local
+*.log
+*.tmp
+
+# Helm/Kubernetes generated render output
+rendered-*.yaml
+**/rendered-*.yaml
+
+# Backup, swap, and editor recovery files
+*.bak
+*.backup
+*.orig
+*~
+*.swp
+*.swo
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/

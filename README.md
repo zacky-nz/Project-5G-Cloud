@@ -1,23 +1,25 @@
 # Project-5G-Cloud
 
-Cloud-native 5G network simulation and deployment project using Kubernetes, OpenAirInterface (OAI), Multus CNI, Helm, Argo CD, and ORCA dashboard.
+Cloud-native 5G network simulation and deployment project using Kubernetes, OpenAirInterface (OAI), Multus CNI, Helm, Argo CD, Longhorn, Prometheus, and Grafana.
 
 This project is part of the research:
 
 **5G Network Simulation System Based on Centralized Dashboard in Cloud Native Environment**
 
-The system focuses on adaptive networking and 5G deployment automation with the goal of minimizing resource usage while maintaining a functional cloud-native 5G simulation environment.
+The active repository scope is now the 5G network and supporting infrastructure. Legacy dashboard/application sources have been removed from this branch so a new VM clone stays focused on the OAI core, RAN, monitoring, storage, and GitOps pieces.
 
 ---
 
 ## Table of Contents
 
 - [Project Overview](#project-overview)
+- [Latest Verified Progress](#latest-verified-progress)
 - [Team and Roles](#team-and-roles)
 - [System Architecture](#system-architecture)
 - [Repository Structure](#repository-structure)
 - [Technology Stack](#technology-stack)
 - [Current Infrastructure](#current-infrastructure)
+- [VM IP Resilience](#vm-ip-resilience)
 - [Namespace Layout](#namespace-layout)
 - [Network and Interface Plan](#network-and-interface-plan)
 - [Important Fixes Applied](#important-fixes-applied)
@@ -35,7 +37,7 @@ The system focuses on adaptive networking and 5G deployment automation with the 
 
 ## Project Overview
 
-Project-5G-Cloud contains ORCA, OAI CNF manifests, Helm charts, and Kubernetes configuration used to deploy a simulated 5G network in a cloud-native environment.
+Project-5G-Cloud contains OAI CNF manifests, Helm charts, and Kubernetes configuration used to deploy a simulated 5G network in a cloud-native environment.
 
 The system includes:
 
@@ -46,7 +48,32 @@ The system includes:
 - Flannel as the primary Kubernetes CNI
 - Longhorn for storage
 - Argo CD for GitOps
-- ORCA dashboard for centralized deployment and monitoring automation
+
+---
+
+## Latest Verified Progress
+
+The current stable demo scope is **SINGLE / level1 / single-node lab**.
+
+Verified result:
+
+```text
+Core Network: Running
+RAN CU/DU/NR-UE: Running
+UE tunnel: oaitun_ue1 = 12.1.1.100/24
+Dataplane test: UE -> UPF gateway ping success
+Packet loss: 0%
+```
+
+Latest successful dataplane proof:
+
+```text
+PING 12.1.1.1 (12.1.1.1) from 12.1.1.100 oaitun_ue1
+4 packets transmitted, 4 received, 0% packet loss
+rtt min/avg/max/mdev = 6.595/7.409/8.256/0.683 ms
+```
+
+Balanced resource optimization has also been applied to Prometheus, Grafana, cAdvisor, CU, DU, and NR-UE so the lab remains lighter for a single VM.
 
 ---
 
@@ -55,8 +82,8 @@ The system includes:
 | Name | Student ID | Role |
 | --- | --- | --- |
 | Ari Erginta Ginting | 1101204178 | Infrastructure |
-| Ima Dewi Arofani | 1101204375 | Frontend |
-| Bagus Dwi Prasetyo | 1101204109 | Backend |
+| Ima Dewi Arofani | 1101204375 | Archived dashboard UI |
+| Bagus Dwi Prasetyo | 1101204109 | Archived dashboard API |
 | M. Rafli Hadiana | 1101202426 | 5G System |
 
 ---
@@ -68,13 +95,10 @@ The system is deployed on Kubernetes using a cloud-native architecture.
 Main components:
 
 ```text
-User / Operator
+Operator
       |
       v
-ORCA Dashboard
-      |
-      v
-Kubernetes API / Helm / Argo CD
+kubectl / Helm / Argo CD
       |
       v
 +-----------------------------+
@@ -110,14 +134,17 @@ Kubernetes API / Helm / Argo CD
 
 ```text
 Project-5G-Cloud/
-├── AN-OPEN-NETRA-FE/          # ORCA frontend
 ├── AN-ORCA-CNF/               # OAI CNF Helm charts and manifests
 │   ├── oai-5g-core/           # 5G Core Helm charts
 │   ├── user_n/                # RAN, CU, DU, and UE Helm charts
 │   └── multus-daemonset.yml   # Multus CNI manifest
-├── AN-ORCA-MANIFESTS/         # Application and infrastructure manifests
+├── AN-ORCA-MANIFESTS/         # Infrastructure manifests
+├── docs/                      # Operational runbooks
+├── scripts/                   # Operational helper scripts
 └── README.md
 ```
+
+Generated Helm render files such as `rendered-*.yaml` are intentionally ignored and should be regenerated locally when needed.
 
 ---
 
@@ -141,17 +168,6 @@ Project-5G-Cloud/
 - RF simulator for DU and UE connection
 - Secondary interfaces for N2, N3, N4, and F1
 
-### ORCA Application
-
-- Frontend: React
-- Backend: Django
-- API: Django REST Framework
-- Realtime communication: Django Channels
-- Database and broker: PostgreSQL and Redis
-- Deployment integration: Helm, Kubernetes API, and Python subprocess
-
----
-
 ## Current Infrastructure
 
 Current runtime environment:
@@ -160,7 +176,7 @@ Current runtime environment:
 | --- | --- |
 | Node | `tr-an` |
 | Host / VM | `awanbaru` |
-| Node IP | `172.20.0.11` |
+| Current Node IP | `172.20.0.11` |
 | IPv6 | `fe80::be24:11ff:fef3:2de0` |
 | CPU | 16 vCPU |
 | RAM | 23 GiB |
@@ -173,6 +189,40 @@ Notes:
 - The initial design used 3 nodes: 1 master and 2 worker nodes.
 - The current runtime environment uses 1 active node.
 - Do not mix the initial design data with the current troubleshooting data.
+- If Proxmox gives the VM a new IP after restart, prefer DHCP reservation/static IP. If that is not possible, use `scripts/vm-ip-doctor.sh` to remap lab hostnames.
+
+---
+
+## VM IP Resilience
+
+The lab should avoid hard-coding raw VM IPs in daily operation. Use hostnames for infrastructure endpoints such as:
+
+```text
+grafana.orca.edu
+longhorn.orca.edu
+prometheus.orca.edu
+jenkins.orca.edu
+pma.orca.edu
+```
+
+Recommended permanent fix:
+
+```text
+Reserve the VM MAC address in Proxmox/router/DHCP so awanbaru keeps the same IP.
+```
+
+Fallback when DHCP still changes the VM IP:
+
+```bash
+scripts/vm-ip-doctor.sh
+sudo scripts/vm-ip-doctor.sh --apply-hosts
+```
+
+The script detects the current VM IP and updates `/etc/hosts` for the lab hostnames. More detail is documented in:
+
+```text
+docs/VM_IP_RESILIENCE.md
+```
 
 ---
 
@@ -259,6 +309,11 @@ The following fixes were applied during troubleshooting:
 | OAI image | Used compatible RAN image version to avoid F1 decode errors |
 | Routing | Updated CU / DU route and interface configuration |
 | Namespace cleanup | Active RAN path moved to `ran-network`; old duplicate RAN in `core-network` should be disabled |
+| Resource optimization | Applied Balanced resource limits to monitoring and RAN components |
+| VM IP resilience | Added host remapping helper for lab infrastructure endpoints after VM IP changes |
+| Repository cleanup | Removed generated `rendered-*.yaml` files and ignored future render output |
+| Operation script | Updated `AN-ORCA-CNF/operation.sh` defaults to use `core-network` and `ran-network` namespaces |
+| DiskPressure recovery | Freed local disk, removed evicted pods, and restarted CNF in the correct UPF -> SMF -> AMF -> CU -> DU -> UE order |
 
 ---
 
@@ -533,12 +588,30 @@ sudo iptables -t nat -S | grep -E "MASQUERADE|10.244|12.1.1"
 | `Device n2 does not exist` | AMF/CU fails to start | Multus did not attach interface | Check NAD, Multus daemonset, and CNI binary path |
 | F1 decode error | DU cannot connect to CU | CU/DU image or config mismatch | Align CU/DU image versions and F1 config |
 | UE cannot connect to DU | RF simulator connection fails | RFSIM server/client mismatch | Run DU as RFSIM server and UE as client to `oai-du-rfsim` |
+| Node `DiskPressure` | New pods become `Evicted` immediately | Root disk or container image pressure | Free disk, clean failed pods, wait for `DiskPressure=False`, then restart CNF |
+| `No UPF available` in SMF | UE registers but `oaitun_ue1` stays down | SMF-UPF PFCP/N4 association stale | Restart `oai-upf`, then `oai-smf`, then `oai-amf`, then restart CU/DU/UE |
+
+Recommended CNF recovery order after VM restart, DiskPressure, or stale NRF/PFCP state:
+
+```bash
+kubectl -n core-network rollout restart deploy/oai-upf
+kubectl -n core-network rollout status deploy/oai-upf
+
+kubectl -n core-network rollout restart deploy/oai-smf deploy/oai-amf
+kubectl -n core-network rollout status deploy/oai-smf
+kubectl -n core-network rollout status deploy/oai-amf
+
+kubectl -n ran-network rollout restart deploy/oai-cu-level1 deploy/oai-du-level1 deploy/oai-nr-ue-level1
+kubectl -n ran-network rollout status deploy/oai-cu-level1
+kubectl -n ran-network rollout status deploy/oai-du-level1
+kubectl -n ran-network rollout status deploy/oai-nr-ue-level1
+```
 
 ---
 
 ## Known Current State
 
-The latest verified control-plane status:
+The latest verified status:
 
 ```text
 DU-CU F1 setup: success
@@ -548,14 +621,15 @@ UE RRC state: RRC_CONNECTED
 AMF UE state: 5GMM-REGISTERED
 SMF PDU session: ACTIVE
 UE tunnel: oaitun_ue1 with IP 12.1.1.100/24
+Dataplane: ping from UE tunnel to UPF gateway 12.1.1.1 succeeds
 ```
 
-Current remaining dataplane issue:
+Current infra notes:
 
 ```text
-UE cannot ping 12.1.1.1 through oaitun_ue1.
-This indicates the issue is likely in N3 / GTP-U / UPF PDR-FAR handling,
-not in UE routing or NAT to the internet.
+Argo CD, Longhorn, Prometheus, Grafana, and cAdvisor are running.
+Jenkins resources exist, but Jenkins deployment is currently scaled to 0.
+Longhorn volumes may show degraded on a single-node lab; this is expected and should not be presented as HA storage.
 ```
 
 ---
@@ -568,14 +642,14 @@ Important notes:
 
 - Do not enable Argo CD self-heal or sync before all working changes are committed to Git.
 - Manual cluster changes may be reverted by Argo CD if they are not reflected in the Git source.
-- The `orca-app` application may show `OutOfSync` while manual debugging changes exist.
+- Argo CD applications may show `OutOfSync` while manual debugging changes exist.
 - Commit working configuration first, then run Argo CD sync.
 
-Check Argo CD application:
+Check Argo CD applications:
 
 ```bash
-kubectl get application -n argocd orca-app
-kubectl get application -n argocd orca-app -o yaml | grep -Ei "repoURL|targetRevision|path|syncPolicy" -A5 -B3
+kubectl get applications -n argocd
+kubectl get applications -n argocd -o yaml | grep -Ei "repoURL|targetRevision|path|syncPolicy" -A5 -B3
 ```
 
 Recommended flow:
@@ -587,14 +661,12 @@ git commit -m "Fix OAI 5G RAN and core network configuration"
 git push origin <branch-name>
 ```
 
-After confirming the pushed branch is the same branch used by Argo CD:
+After confirming the pushed branch is the same branch used by the target Argo CD application:
 
 ```bash
-argocd app diff orca-app
-argocd app sync orca-app
+argocd app diff <app-name>
+argocd app sync <app-name>
 ```
-
----
 
 ## Guardrails
 
@@ -625,7 +697,9 @@ Total RAM = total user x RPU RAM
 Total user = (total resource - idle resource) / RPU
 ```
 
-### Functional Testing
+### Historical Application Testing
+
+The dashboard/application results below are historical research records. The active branch no longer includes the application source.
 
 | Test | Amount | Result |
 | --- | --- | --- |

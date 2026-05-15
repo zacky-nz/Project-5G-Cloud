@@ -1,5 +1,0 @@
-bases:
-  - ../../base
-  - backend
-  - frontend
-  - websocket

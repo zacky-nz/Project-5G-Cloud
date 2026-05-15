@@ -1,13 +1,10 @@
-# AN-OPEN-NETRA-MANIFESTS
-this repo contains kubernetes manifest for 5G Telco Cloud project
+# AN-ORCA-MANIFESTS
+
+This directory contains Kubernetes infrastructure manifests for the 5G Telco Cloud lab.
+
 #### Structure
+
 ```
-├── app
-│   ├── backend
-│   ├── frontend
-│   ├── ingress.yaml
-│   ├── kustomization.yaml
-│   └── websocket
 ├── infra
 │   ├── argo-cd
 │   ├── jenkins
