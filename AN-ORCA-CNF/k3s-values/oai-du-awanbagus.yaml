@@ -1,0 +1,10 @@
+multus:
+  f1Interface:
+    IPadd: "172.21.0.213"
+    Netmask: "16"
+    hostInterface: "eth0"
+
+config:
+  cuHost: "172.21.0.212"
+
+nodeName: awanbagus

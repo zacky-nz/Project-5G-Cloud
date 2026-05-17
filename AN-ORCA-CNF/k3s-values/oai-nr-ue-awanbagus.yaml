@@ -1,0 +1,6 @@
+multus:
+  ipadd: "172.21.1.214"
+  netmask: "24"
+  hostInterface: "eth0"
+
+nodeName: awanbagus

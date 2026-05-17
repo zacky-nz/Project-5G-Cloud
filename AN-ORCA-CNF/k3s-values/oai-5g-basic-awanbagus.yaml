@@ -1,0 +1,35 @@
+mysql:
+  busybox:
+    tag: "1.36"
+  persistence:
+    enabled: true
+    storageClass: "longhorn"
+    accessMode: ReadWriteOnce
+    size: 8Gi
+
+oai-amf:
+  multus:
+    n2Interface:
+      Ipadd: "172.21.0.200"
+      Netmask: "16"
+      hostInterface: "eth0"
+
+oai-upf:
+  multus:
+    n3Interface:
+      Ipadd: "172.21.0.201"
+      Netmask: "16"
+      hostInterface: "eth0"
+    n4Interface:
+      Ipadd: "172.21.0.202"
+      Netmask: "16"
+      hostInterface: "eth0"
+  config:
+    gnbN3Ip: "172.21.0.211"
+
+oai-smf:
+  multus:
+    n4Interface:
+      Ipadd: "172.21.0.203"
+      Netmask: "16"
+      hostInterface: "eth0"

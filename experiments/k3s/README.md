@@ -172,7 +172,23 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm version
 ```
 
-## 7. Install Longhorn
+## 7. Cek CPU untuk OAI RAN
+
+Image OAI RAN (`oai-gnb` dan `oai-nr-ue`) membutuhkan instruksi CPU AVX2. Cek sebelum deploy CU, DU, dan NR-UE:
+
+```bash
+lscpu | grep -i '^Flags' | grep -o 'avx2'
+```
+
+Expected:
+
+```text
+avx2
+```
+
+Jika output kosong, OAI Core masih bisa diuji, tetapi OAI CU/DU/NR-UE akan gagal start dengan exit code `132` (`Illegal instruction`). Untuk menjalankan RAN, ubah CPU VM agar expose AVX2, misalnya CPU mode `host`/`host-passthrough` di hypervisor, lalu restart VM dan cek ulang flag CPU.
+
+## 8. Install Longhorn
 
 Longhorn dipasang juga di K3s agar setara dengan `awanbaru`.
 
@@ -212,7 +228,7 @@ kubectl patch storageclass longhorn \
   -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 ```
 
-## 8. Buat namespace OAI
+## 9. Buat namespace OAI
 
 ```bash
 kubectl create namespace core-network --dry-run=client -o yaml | kubectl apply -f -
@@ -221,22 +237,165 @@ kubectl create namespace ran-network --dry-run=client -o yaml | kubectl apply -f
 
 Command ini aman dijalankan berulang. Jika namespace sudah ada, `kubectl apply` hanya memastikan object tetap ada.
 
-## 9. Urutan deploy aman
+## 10. Install Multus khusus K3s
+
+K3s memakai path CNI berbeda dari baseline vanilla:
+
+```text
+CNI config dir : /var/lib/rancher/k3s/agent/etc/cni/net.d
+CNI binary dir : /var/lib/rancher/k3s/data/cni
+```
+
+Install plugin CNI tambahan yang dibutuhkan NAD OAI (`ipvlan` dan IPAM `static`):
+
+```bash
+CNI_VERSION=v1.7.1
+TMPDIR=$(mktemp -d)
+curl -fL "https://github.com/containernetworking/plugins/releases/download/${CNI_VERSION}/cni-plugins-linux-amd64-${CNI_VERSION}.tgz" \
+  -o "$TMPDIR/cni-plugins.tgz"
+
+sudo tar -C /var/lib/rancher/k3s/data/cni -xzf "$TMPDIR/cni-plugins.tgz" \
+  ./ipvlan ./macvlan ./static ./ptp ./tuning
+sudo chmod 755 /var/lib/rancher/k3s/data/cni/{ipvlan,macvlan,static,ptp,tuning}
+rm -rf "$TMPDIR"
+```
+
+Karena Multus daemon menjalankan delegate plugin lewat `/opt/cni/bin`, isi juga path itu dan pastikan plugin dasar K3s bukan symlink patah saat dimount ke container:
+
+```bash
+for p in bandwidth bridge firewall flannel host-local loopback portmap; do
+  sudo rm -f "/var/lib/rancher/k3s/data/cni/$p"
+  sudo cp /var/lib/rancher/k3s/data/current/bin/cni "/var/lib/rancher/k3s/data/cni/$p"
+  sudo chmod 755 "/var/lib/rancher/k3s/data/cni/$p"
+done
+
+sudo mkdir -p /opt/cni/bin
+for p in bandwidth bridge cni firewall flannel host-local loopback portmap ipvlan macvlan static ptp tuning multus-shim; do
+  if [ -e "/var/lib/rancher/k3s/data/cni/$p" ]; then
+    sudo cp -Lf "/var/lib/rancher/k3s/data/cni/$p" "/opt/cni/bin/$p"
+    sudo chmod 755 "/opt/cni/bin/$p"
+  fi
+done
+```
+
+Apply manifest Multus K3s:
+
+```bash
+kubectl apply -f AN-ORCA-CNF/multus-daemonset-k3s.yml
+kubectl rollout status ds/kube-multus-ds -n kube-system --timeout=180s
+kubectl get pods -n kube-system -l app=multus -o wide
+kubectl get crd network-attachment-definitions.k8s.cni.cncf.io
+```
+
+Expected:
+
+```text
+kube-multus-ds Running
+00-multus.conf ada di /var/lib/rancher/k3s/agent/etc/cni/net.d
+```
+
+## 11. Siapkan secret image pull OAI
+
+Chart OAI memakai nama secret `regcred`. Untuk image publik, secret kosong ini cukup agar pod tidak mengeluarkan warning secret hilang.
+
+Di `core-network`, secret bisa dibuat biasa:
+
+```bash
+kubectl create secret generic regcred -n core-network \
+  --type=kubernetes.io/dockerconfigjson \
+  --from-literal=.dockerconfigjson='{"auths":{}}' \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Di `ran-network`, chart `oai-nr-ue` punya template `regcred` sendiri. Agar tidak konflik saat `helm install oai-nr-ue`, buat secret kosong dengan metadata ownership Helm untuk release `oai-nr-ue`:
+
+```bash
+kubectl create secret generic regcred -n ran-network \
+  --type=kubernetes.io/dockerconfigjson \
+  --from-literal=.dockerconfigjson='{"auths":{}}' \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl label secret regcred -n ran-network \
+  app.kubernetes.io/managed-by=Helm --overwrite
+
+kubectl annotate secret regcred -n ran-network \
+  meta.helm.sh/release-name=oai-nr-ue \
+  meta.helm.sh/release-namespace=ran-network \
+  --overwrite
+```
+
+## 12. Values Helm awanbagus
+
+Gunakan override di folder CNF agar semua aset deploy OAI tetap terkumpul di `AN-ORCA-CNF`, tanpa mengubah chart asli baseline `awanbaru`:
+
+```text
+AN-ORCA-CNF/k3s-values/oai-5g-basic-awanbagus.yaml
+AN-ORCA-CNF/k3s-values/oai-cu-awanbagus.yaml
+AN-ORCA-CNF/k3s-values/oai-du-awanbagus.yaml
+AN-ORCA-CNF/k3s-values/oai-nr-ue-awanbagus.yaml
+```
+
+Render dulu sebelum deploy:
+
+```bash
+helm template basic AN-ORCA-CNF/oai-5g-core/oai-5g-basic \
+  -n core-network \
+  -f AN-ORCA-CNF/k3s-values/oai-5g-basic-awanbagus.yaml >/tmp/oai-basic-k3s-render.yaml
+
+helm template oai-cu AN-ORCA-CNF/user_n/oai-e2e/oai-cu \
+  -n ran-network \
+  -f AN-ORCA-CNF/k3s-values/oai-cu-awanbagus.yaml >/tmp/oai-cu-k3s-render.yaml
+
+helm template oai-du AN-ORCA-CNF/user_n/oai-e2e/oai-du \
+  -n ran-network \
+  -f AN-ORCA-CNF/k3s-values/oai-du-awanbagus.yaml >/tmp/oai-du-k3s-render.yaml
+
+helm template oai-nr-ue AN-ORCA-CNF/user_n/oai-e2e/oai-nr-ue \
+  -n ran-network \
+  -f AN-ORCA-CNF/k3s-values/oai-nr-ue-awanbagus.yaml >/tmp/oai-ue-k3s-render.yaml
+
+rg "172\\.20|awanbaru" /tmp/oai-*-k3s-render.yaml
+```
+
+Command `rg` terakhir harus tidak mengeluarkan hasil.
+
+Deploy core dan RAN setelah K3s, Longhorn, dan Multus valid:
+
+```bash
+helm upgrade --install basic AN-ORCA-CNF/oai-5g-core/oai-5g-basic \
+  -n core-network \
+  -f AN-ORCA-CNF/k3s-values/oai-5g-basic-awanbagus.yaml
+
+helm upgrade --install oai-cu AN-ORCA-CNF/user_n/oai-e2e/oai-cu \
+  -n ran-network \
+  -f AN-ORCA-CNF/k3s-values/oai-cu-awanbagus.yaml
+
+helm upgrade --install oai-du AN-ORCA-CNF/user_n/oai-e2e/oai-du \
+  -n ran-network \
+  -f AN-ORCA-CNF/k3s-values/oai-du-awanbagus.yaml
+
+helm upgrade --install oai-nr-ue AN-ORCA-CNF/user_n/oai-e2e/oai-nr-ue \
+  -n ran-network \
+  -f AN-ORCA-CNF/k3s-values/oai-nr-ue-awanbagus.yaml
+```
+
+## 13. Urutan deploy aman
 
 Jangan langsung deploy OAI setelah K3s selesai install. Urutan amannya:
 
 1. Install K3s.
 2. Verifikasi node `Ready`.
 3. Install Helm.
-4. Pastikan keputusan storage: untuk riset ini Longhorn dipakai agar setara dengan `awanbaru`.
-5. Install Longhorn dan pastikan pods, StorageClass, dan CSIDriver valid.
-6. Install Multus khusus K3s.
-7. Cek `NetworkAttachmentDefinition`.
-8. Siapkan values Helm K3s dengan IP `172.21.x.x`.
-9. Deploy OAI Core via Helm.
-10. Deploy CU, DU, NR-UE via Helm.
-11. Validasi interface `n2`, `n3`, `n4`, `f1`.
-12. Validasi UE tunnel `oaitun_ue1` dan ping `12.1.1.1`.
+4. Cek CPU `avx2` sebelum deploy OAI RAN.
+5. Pastikan keputusan storage: untuk riset ini Longhorn dipakai agar setara dengan `awanbaru`.
+6. Install Longhorn dan pastikan pods, StorageClass, dan CSIDriver valid.
+7. Install Multus khusus K3s.
+8. Cek `NetworkAttachmentDefinition`.
+9. Siapkan values Helm K3s dengan IP `172.21.x.x`.
+10. Deploy OAI Core via Helm.
+11. Deploy CU, DU, NR-UE via Helm jika CPU AVX2 tersedia.
+12. Validasi interface `n2`, `n3`, `n4`, `f1`.
+13. Validasi UE tunnel `oaitun_ue1` dan ping `12.1.1.1`.
 
 Untuk tahap awal, berhenti dulu setelah command berikut sukses:
 
@@ -251,7 +410,7 @@ kubectl get csidrivers
 
 Jangan lanjut deploy OAI sebelum K3s, Helm, Longhorn, dan Multus valid.
 
-## 10. Catatan troubleshooting awal
+## 14. Catatan troubleshooting awal
 
 Cek log K3s:
 
@@ -272,3 +431,11 @@ sudo /usr/local/bin/k3s-uninstall.sh
 ```
 
 Gunakan uninstall hanya kalau memang mau reset cluster K3s dari awal.
+
+Jika OAI CU, DU, atau NR-UE gagal dengan exit code `132`, cek CPU flag:
+
+```bash
+lscpu | grep -i '^Flags'
+```
+
+Jika tidak ada `avx2`, itu bukan masalah Helm/Multus. VM harus dipindah ke CPU mode yang expose AVX2 atau image OAI harus dibuild ulang untuk instruksi CPU yang tersedia.
