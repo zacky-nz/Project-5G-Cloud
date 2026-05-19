@@ -20,6 +20,7 @@ Implikasi metodologi:
 | `vanilla-kubeadm/` | Catatan baseline `awanbaru` |
 | `k3s/` | Catatan pembanding `awanbagus` setelah K3s disiapkan |
 | `results/` | Snapshot hasil validasi dan tabel perbandingan |
+| `MEMORY_REDEPLOY_AWANBAGUS_UBUNTU22.md` | Memory singkat untuk deploy ulang `awanbagus` baru memakai Ubuntu 22 |
 
 ## Runbook terkait
 
